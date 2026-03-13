@@ -1,0 +1,113 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: deepseek-pd-cm
+data:
+  prefill.sh: |
+    nic_name="eth0"  # network card name
+    local_ip=$POD_IP
+    export HCCL_IF_IP=$local_ip
+    export GLOO_SOCKET_IFNAME=$nic_name
+    export TP_SOCKET_IFNAME=$nic_name
+    export HCCL_SOCKET_IFNAME=$nic_name
+    export OMP_PROC_BIND=false
+    export OMP_NUM_THREADS=10
+    export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+    export HCCL_BUFFSIZE=256
+    export TASK_QUEUE_ENABLE=1
+    export HCCL_OP_EXPANSION_MODE="AIV"
+    export VLLM_USE_V1=1
+    export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
+    vllm serve $MODEL_LOCATION \
+      --host $POD_IP \
+      --port "7100" \
+      --data-parallel-size 2 \
+      --data-parallel-size-local 2 \
+      --data-parallel-address $POD_IP \
+      --data-parallel-rpc-port 12321 \
+      --tensor-parallel-size 8 \
+      --enable-expert-parallel \
+      --seed 1024 \
+      --served-model-name ds_r1 \
+      --max-model-len 40000 \
+      --max-num-batched-tokens 16384 \
+      --max-num-seqs 8 \
+      --enforce-eager \
+      --trust-remote-code \
+      --gpu-memory-utilization 0.9  \
+      --quantization ascend \
+      --no-enable-prefix-caching \
+      --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+      --additional-config '{"recompute_scheduler_enable":true,"enable_shared_expert_dp": true}' \
+      --kv-transfer-config \
+      '{"kv_connector": "MooncakeConnectorV1",
+      "kv_role": "kv_producer",
+      "kv_port": "9000",
+      "engine_id": "$MOONCAKE_ENGINE_ID",
+      "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
+      "kv_connector_extra_config": {
+                "use_ascend_direct": true,
+                "prefill": {
+                        "dp_size": 2,
+                        "tp_size": 8
+                },
+                "decode": {
+                        "dp_size": 8,
+                        "tp_size": 2
+                }
+          }
+      }'
+  decode.sh: |
+    nic_name="enp23s0f3"  # network card name
+    local_ip=$POD_IP
+    export HCCL_IF_IP=$local_ip
+    export GLOO_SOCKET_IFNAME=$nic_name
+    export TP_SOCKET_IFNAME=$nic_name
+    export HCCL_SOCKET_IFNAME=$nic_name
+    export OMP_PROC_BIND=false
+    export OMP_NUM_THREADS=10
+    export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+    export VLLM_ASCEND_ENABLE_MLAPO=1
+    export HCCL_BUFFSIZE=600
+    export TASK_QUEUE_ENABLE=1
+    export HCCL_OP_EXPANSION_MODE="AIV"
+    export VLLM_USE_V1=1
+    export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
+    vllm serve $MODEL_LOCATION \
+      --host $POD_IP \
+      --port "7100" \
+      --data-parallel-size 8 \
+      --data-parallel-address $POD_IP \
+      --data-parallel-rpc-port 12321 \
+      --tensor-parallel-size 2 \
+      --enable-expert-parallel \
+      --seed 1024 \
+      --served-model-name ds_r1 \
+      --max-model-len 40000 \
+      --max-num-batched-tokens 256 \
+      --max-num-seqs 40 \
+      --trust-remote-code \
+      --gpu-memory-utilization 0.94  \
+      --quantization ascend \
+      --no-enable-prefix-caching \
+      --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+      --additional-config '{"recompute_scheduler_enable":true,"multistream_overlap_shared_expert": true,"finegrained_tp_config": {"lmhead_tensor_parallel_size":8}}' \
+      --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
+      --kv-transfer-config \
+      '{"kv_connector": "MooncakeConnectorV1",
+      "kv_role": "kv_consumer",
+      "kv_port": "9000",
+      "engine_id": "$MOONCAKE_ENGINE_ID",
+      "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
+      "kv_connector_extra_config": {
+                "use_ascend_direct": true,
+                "prefill": {
+                        "dp_size": 2,
+                        "tp_size": 8
+                },
+                "decode": {
+                        "dp_size": 8,
+                        "tp_size": 2
+                }
+          }
+      }'
