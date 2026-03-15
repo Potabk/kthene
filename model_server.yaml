@@ -135,6 +135,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+            - name: MASTER_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['modelserving.volcano.sh/entry-address']
             - name: TP_SIZE
               value: "8"
             - name: DP_SIZE
@@ -187,7 +191,7 @@ spec:
               name: deepseek-pd-cm
     - name: decode
       replicas: 1
-      workerReplicas: 0
+      workerReplicas: 1
       entryTemplate:
         spec:
           hostNetwork: true
@@ -284,4 +288,87 @@ spec:
           - name: config
             configMap:
               name: deepseek-pd-cm
-            
+      workerTemplate:
+        spec:
+          hostNetwork: true
+          containers:
+          - name: decode-worker
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a2
+            command:
+              - /bin/bash
+            args:
+              - '-c'
+              - cd /workspace && ./decode-worker.sh
+            env:
+            - name: ROLE
+              value: "decode"
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: GROUP_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/group-name']
+            - name: ROLE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/role-id']
+            - name: MASTER_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['modelserving.volcano.sh/entry-address']
+            - name: VLLM_USE_MODELSCOPE
+              value: "true"
+            - name: TP_SIZE
+              value: "2"
+            - name: DP_SIZE
+              value: "8"
+            resources:
+              limits:
+                huawei.com/ascend-1980: 16
+                memory: 512Gi
+                ephemeral-storage: 100Gi
+              requests:
+                huawei.com/ascend-1980: 16
+                ephemeral-storage: 100Gi
+                cpu: 125
+            volumeMounts:
+            - name: shared-volume
+              mountPath: /root/.cache
+            - name: dshm
+              mountPath: /dev/shm
+            - name: hccn-conf
+              mountPath: /etc/hccn.conf
+            - name: hccn-tool
+              mountPath: /usr/local/Ascend/driver/tools/hccn_tool
+            - name: ascend-install-info
+              mountPath: /etc/ascend_install.info
+            - name: config
+              mountPath: /workspace/decode-worker.sh
+              subPath: decode-worker.sh
+              defaultMode: 0777
+          volumes:
+          - name: shared-volume
+            persistentVolumeClaim:
+              claimName: nv-action-vllm-benchmarks-v2
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 15Gi
+          - name: hccn-conf
+            hostPath:
+              path: /etc/hccn.conf
+          - name: hccn-tool
+            hostPath:
+              path: /usr/local/Ascend/driver/tools/hccn_tool
+          - name: ascend-install-info
+            hostPath:
+              path: /etc/ascend_install.info
+          - name: config
+            configMap:
+              name: deepseek-pd-cm
