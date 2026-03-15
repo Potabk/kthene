@@ -2,7 +2,7 @@ apiVersion: networking.serving.volcano.sh/v1alpha1
 kind: ModelRoute
 metadata:
   name: deep-seek-r1
-  namespace: default
+  namespace: vllm-project
 spec:
   modelName: "ds_r1"
   rules:
@@ -14,7 +14,7 @@ apiVersion: networking.serving.volcano.sh/v1alpha1
 kind: ModelServer
 metadata:
   name: deepseek-pd
-  namespace: default
+  namespace: vllm-project
 spec:
   inferenceEngine: vLLM
   model: "ds_r1"

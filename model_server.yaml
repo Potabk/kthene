@@ -2,7 +2,7 @@ apiVersion: workload.serving.volcano.sh/v1alpha1
 kind: ModelServing
 metadata:
   name: deepseek-pd
-  namespace: default
+  namespace: vllm-project
 spec:
   schedulerName: volcano
   replicas: 1
