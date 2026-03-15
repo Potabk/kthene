@@ -51,23 +51,23 @@ spec:
               value: "2"
             - name: VLLM_USE_MODELSCOPE
               value: "true"
-            startupProbe:
-              httpGet:
-                path: /health
-                port: 7100
-                scheme: HTTP
-              initialDelaySeconds: 60
-              periodSeconds: 10
-              timeoutSeconds: 2
-              failureThreshold: 180
-            readinessProbe:
-              httpGet:
-                path: /health
-                port: 7100
-                scheme: HTTP
-              periodSeconds: 10
-              timeoutSeconds: 2
-              failureThreshold: 3
+            # startupProbe:
+            #   httpGet:
+            #     path: /health
+            #     port: 7100
+            #     scheme: HTTP
+            #   initialDelaySeconds: 60
+            #   periodSeconds: 10
+            #   timeoutSeconds: 2
+            #   failureThreshold: 180
+            # readinessProbe:
+            #   httpGet:
+            #     path: /health
+            #     port: 7100
+            #     scheme: HTTP
+            #   periodSeconds: 10
+            #   timeoutSeconds: 2
+            #   failureThreshold: 3
             resources:
               limits:
                 huawei.com/ascend-1980: 16
@@ -246,15 +246,15 @@ spec:
               value: "2"
             - name: DP_SIZE
               value: "8"
-            readinessProbe:
-              httpGet:
-                path: /health
-                port: 7100
-                scheme: HTTP
-              initialDelaySeconds: 60
-              periodSeconds: 10
-              timeoutSeconds: 2
-              failureThreshold: 3
+            # readinessProbe:
+            #   httpGet:
+            #     path: /health
+            #     port: 7100
+            #     scheme: HTTP
+            #   initialDelaySeconds: 60
+            #   periodSeconds: 10
+            #   timeoutSeconds: 2
+            #   failureThreshold: 3
             ports:
             - containerPort: 7100
               name: server
