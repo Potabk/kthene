@@ -12,13 +12,13 @@ spec:
     roles:
     - name: prefill
       replicas: 1
-      workerReplicas: 0
+      workerReplicas: 1
       entryTemplate:
         spec:
           hostNetwork: true
           containers:
           - name: prefill
-            image: swr.cn-southwest-249.myhuaweicloud.com/z00693113/ascend/vllm-ascend:mk-tmp-v0.13.0-a3
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a3
             command:
               - /bin/bash
             args:
@@ -43,12 +43,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
-            - name: MODEL_LOCATION
-              value: /models/DeepSeek-R1-0528-W8A8
             - name: TP_SIZE
               value: "8"
             - name: DP_SIZE
               value: "2"
+            - name: VLLM_USE_MODELSCOPE
+              value: "true"
             readinessProbe:
               httpGet:
                 path: /health
@@ -60,19 +60,19 @@ spec:
               failureThreshold: 3
             resources:
               limits:
-                cpu: '188'
-                huawei.com/ascend-1980: '16'
-                memory: 1800Gi
+                huawei.com/ascend-1980: 16
+                memory: 512Gi
+                ephemeral-storage: 100Gi
               requests:
-                cpu: '64'
-                huawei.com/ascend-1980: '16'
-                memory: 700Gi
+                huawei.com/ascend-1980: 16
+                ephemeral-storage: 100Gi
+                cpu: 125
             ports:
             - containerPort: 7100
               name: server
             volumeMounts:
-            - name: model
-              mountPath: /models
+            - name: shared-volume
+              mountPath: /root/.cache
             - name: dshm
               mountPath: /dev/shm
             - name: hccn-conf
@@ -86,13 +86,93 @@ spec:
               subPath: prefill.sh
               defaultMode: 0777
           volumes:
-          - name: model
-            hostPath:
-              path: /models
-              type: Directory
           - name: dshm
             emptyDir:
               medium: Memory
+              sizeLimit: 15Gi
+          - name: shared-volume
+            persistentVolumeClaim:
+              claimName: nv-action-vllm-benchmarks-v2
+          - name: hccn-conf
+            hostPath:
+              path: /etc/hccn.conf
+          - name: hccn-tool
+            hostPath:
+              path: /usr/local/Ascend/driver/tools/hccn_tool
+          - name: ascend-install-info
+            hostPath:
+              path: /etc/ascend_install.info
+          - name: config
+            configMap:
+              name: deepseek-pd-cm
+      workerTemplate:
+        spec:
+          hostNetwork: true
+          containers:
+          - name: prefill-worker
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a3
+            command:
+              - /bin/bash
+            args:
+              - '-c'
+              - cd /workspace && ./prefill-worker.sh
+            env:
+            - name: ROLE
+              value: "prefill"
+            - name: GROUP_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/group-name']
+            - name: ROLE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/role-id']
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: TP_SIZE
+              value: "8"
+            - name: DP_SIZE
+              value: "2"
+            - name: VLLM_USE_MODELSCOPE
+              value: "true"
+            resources:
+              limits:
+                huawei.com/ascend-1980: 16
+                memory: 512Gi
+                ephemeral-storage: 100Gi
+              requests:
+                huawei.com/ascend-1980: 16
+                ephemeral-storage: 100Gi
+                cpu: 125
+            volumeMounts:
+            - name: shared-volume
+              mountPath: /root/.cache
+            - name: dshm
+              mountPath: /dev/shm
+            - name: hccn-conf
+              mountPath: /etc/hccn.conf
+            - name: hccn-tool
+              mountPath: /usr/local/Ascend/driver/tools/hccn_tool
+            - name: ascend-install-info
+              mountPath: /etc/ascend_install.info
+            - name: config
+              mountPath: /workspace/prefill-worker.sh
+              subPath: prefill-worker.sh
+              defaultMode: 0777
+          volumes:
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 15Gi
+          - name: shared-volume
+            persistentVolumeClaim:
+              claimName: nv-action-vllm-benchmarks-v2
           - name: hccn-conf
             hostPath:
               path: /etc/hccn.conf
@@ -113,7 +193,7 @@ spec:
           hostNetwork: true
           containers:
           - name: decode
-            image: swr.cn-southwest-249.myhuaweicloud.com/z00693113/ascend/vllm-ascend:mk-tmp-v0.13.0-a3
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a2
             command:
               - /bin/bash
             args:
@@ -142,8 +222,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.labels['modelserving.volcano.sh/role-id']
-            - name: MODEL_LOCATION
-              value: /models/DeepSeek-R1-0528-W8A8
+            - name: VLLM_USE_MODELSCOPE
+              value: "true"
             - name: TP_SIZE
               value: "2"
             - name: DP_SIZE
@@ -162,16 +242,16 @@ spec:
               name: server
             resources:
               limits:
-                cpu: '188'
-                huawei.com/ascend-1980: '16'
-                memory: 1800Gi
+                huawei.com/ascend-1980: 16
+                memory: 512Gi
+                ephemeral-storage: 100Gi
               requests:
-                cpu: '64'
-                huawei.com/ascend-1980: '16'
-                memory: 700Gi
+                huawei.com/ascend-1980: 16
+                ephemeral-storage: 100Gi
+                cpu: 125
             volumeMounts:
-            - name: model
-              mountPath: /models
+            - name: shared-volume
+              mountPath: /root/.cache
             - name: dshm
               mountPath: /dev/shm
             - name: hccn-conf
@@ -185,13 +265,13 @@ spec:
               subPath: decode.sh
               defaultMode: 0777
           volumes:
-          - name: model
-            hostPath:
-              path: /models
-              type: Directory
+          - name: shared-volume
+            persistentVolumeClaim:
+              claimName: nv-action-vllm-benchmarks-v2
           - name: dshm
             emptyDir:
               medium: Memory
+              sizeLimit: 15Gi
           - name: hccn-conf
             hostPath:
               path: /etc/hccn.conf

@@ -4,7 +4,7 @@ metadata:
   name: deepseek-pd-cm
 data:
   prefill.sh: |
-    nic_name="eth0"  # network card name
+    nic_name="enp23s0f3"  # network card name
     local_ip=$POD_IP
     export HCCL_IF_IP=$local_ip
     export GLOO_SOCKET_IFNAME=$nic_name
@@ -12,12 +12,12 @@ data:
     export HCCL_SOCKET_IFNAME=$nic_name
     export OMP_PROC_BIND=false
     export OMP_NUM_THREADS=10
-    export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
     export HCCL_BUFFSIZE=256
     export TASK_QUEUE_ENABLE=1
     export HCCL_OP_EXPANSION_MODE="AIV"
-    export VLLM_USE_V1=1
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    export VLLM_ENGINE_READY_TIMEOUT_S=1800
     vllm serve $MODEL_LOCATION \
       --host $POD_IP \
       --port "7100" \
@@ -66,13 +66,13 @@ data:
     export HCCL_SOCKET_IFNAME=$nic_name
     export OMP_PROC_BIND=false
     export OMP_NUM_THREADS=10
-    export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
     export VLLM_ASCEND_ENABLE_MLAPO=1
     export HCCL_BUFFSIZE=600
     export TASK_QUEUE_ENABLE=1
     export HCCL_OP_EXPANSION_MODE="AIV"
-    export VLLM_USE_V1=1
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    export VLLM_ENGINE_READY_TIMEOUT_S=1800
     vllm serve $MODEL_LOCATION \
       --host $POD_IP \
       --port "7100" \
