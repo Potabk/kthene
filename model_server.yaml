@@ -51,12 +51,20 @@ spec:
               value: "2"
             - name: VLLM_USE_MODELSCOPE
               value: "true"
-            readinessProbe:
+            startupProbe:
               httpGet:
                 path: /health
                 port: 7100
                 scheme: HTTP
               initialDelaySeconds: 60
+              periodSeconds: 10
+              timeoutSeconds: 2
+              failureThreshold: 180
+            readinessProbe:
+              httpGet:
+                path: /health
+                port: 7100
+                scheme: HTTP
               periodSeconds: 10
               timeoutSeconds: 2
               failureThreshold: 3
