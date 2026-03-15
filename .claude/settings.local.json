@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(/Users/wangli/vllm-project/kthene/model_server.yaml:*)"
+      "Bash(/Users/wangli/vllm-project/kthene/model_server.yaml:*)",
+      "WebFetch(domain:kthena.volcano.sh)"
     ]
   }
 }
