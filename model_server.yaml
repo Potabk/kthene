@@ -384,6 +384,7 @@ metadata:
   namespace: vllm-project
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     modelserving.volcano.sh/name: deepseek-pd
     modelserving.volcano.sh/role: prefill
@@ -399,6 +400,7 @@ metadata:
   namespace: vllm-project
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     modelserving.volcano.sh/name: deepseek-pd
     modelserving.volcano.sh/role: decode
