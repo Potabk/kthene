@@ -28,10 +28,10 @@ spec:
       groupKey: "modelserving.volcano.sh/group-name"
       prefillLabels:
         modelserving.volcano.sh/role: prefill
-        modelserving.volcano.sh/role-type: entry
+        modelserving.volcano.sh/entry: "true"
       decodeLabels:
         modelserving.volcano.sh/role: decode
-        modelserving.volcano.sh/role-type: entry
+        modelserving.volcano.sh/entry: "true"
   trafficPolicy:
     timeout: "300s"
     retry:
