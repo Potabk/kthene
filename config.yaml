@@ -59,6 +59,11 @@ data:
           }
       }'
   prefill-worker.sh: |
+    until MASTER_IP=$(getent hosts deepseek-pd-prefill-entry.vllm-project.svc.cluster.local | awk '{print $1}') && [ -n "$MASTER_IP" ]; do
+      echo "Waiting for prefill entry pod..."
+      sleep 5
+    done
+    echo "Prefill entry IP: $MASTER_IP"
     nic_name="enp23s0f3"  # network card name
     local_ip=$POD_IP
     export HCCL_IF_IP=$local_ip
@@ -171,6 +176,11 @@ data:
           }
       }'
   decode-worker.sh: |
+    until MASTER_IP=$(getent hosts deepseek-pd-decode-entry.vllm-project.svc.cluster.local | awk '{print $1}') && [ -n "$MASTER_IP" ]; do
+      echo "Waiting for decode entry pod..."
+      sleep 5
+    done
+    echo "Decode entry IP: $MASTER_IP"
     nic_name="enp23s0f3"  # network card name
     local_ip=$POD_IP
     export HCCL_IF_IP=$local_ip
