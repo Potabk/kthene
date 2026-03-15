@@ -210,7 +210,7 @@ spec:
           dnsPolicy: ClusterFirstWithHostNet
           containers:
           - name: decode
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a2
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a3
             imagePullPolicy: Always
             command:
               - /bin/bash
@@ -308,7 +308,7 @@ spec:
           dnsPolicy: ClusterFirstWithHostNet
           containers:
           - name: decode-worker
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a2
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a3
             imagePullPolicy: Always
             command:
               - /bin/bash

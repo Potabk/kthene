@@ -44,7 +44,7 @@ data:
       '{"kv_connector": "MooncakeConnectorV1",
       "kv_role": "kv_producer",
       "kv_port": "9000",
-      "engine_id": "0",
+      "engine_id": "$MOONCAKE_ENGINE_ID",
       "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
       "kv_connector_extra_config": {
                 "use_ascend_direct": true,
@@ -105,7 +105,7 @@ data:
       '{"kv_connector": "MooncakeConnectorV1",
       "kv_role": "kv_producer",
       "kv_port": "9000",
-      "engine_id": "0",
+      "engine_id": "$MOONCAKE_ENGINE_ID",
       "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
       "kv_connector_extra_config": {
                 "use_ascend_direct": true,
@@ -161,7 +161,7 @@ data:
       '{"kv_connector": "MooncakeConnectorV1",
       "kv_role": "kv_consumer",
       "kv_port": "9000",
-      "engine_id": "1",
+      "engine_id": "$MOONCAKE_ENGINE_ID",
       "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
       "kv_connector_extra_config": {
                 "use_ascend_direct": true,
@@ -223,7 +223,7 @@ data:
       '{"kv_connector": "MooncakeConnectorV1",
       "kv_role": "kv_consumer",
       "kv_port": "9000",
-      "engine_id": "1",
+      "engine_id": "$MOONCAKE_ENGINE_ID",
       "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
       "kv_connector_extra_config": {
                 "use_ascend_direct": true,
