@@ -85,7 +85,6 @@ spec:
             - name: config
               mountPath: /workspace/prefill.sh
               subPath: prefill.sh
-              defaultMode: 0777
           volumes:
           - name: dshm
             emptyDir:
@@ -106,6 +105,7 @@ spec:
           - name: config
             configMap:
               name: deepseek-pd-cm
+              defaultMode: 0777
       workerTemplate:
         spec:
           hostNetwork: true
@@ -170,7 +170,6 @@ spec:
             - name: config
               mountPath: /workspace/prefill-worker.sh
               subPath: prefill-worker.sh
-              defaultMode: 0777
           volumes:
           - name: dshm
             emptyDir:
@@ -191,6 +190,7 @@ spec:
           - name: config
             configMap:
               name: deepseek-pd-cm
+              defaultMode: 0777
     - name: decode
       replicas: 1
       workerReplicas: 1
@@ -270,7 +270,6 @@ spec:
             - name: config
               mountPath: /workspace/decode.sh
               subPath: decode.sh
-              defaultMode: 0777
           volumes:
           - name: shared-volume
             persistentVolumeClaim:
@@ -291,6 +290,7 @@ spec:
           - name: config
             configMap:
               name: deepseek-pd-cm
+              defaultMode: 0777
       workerTemplate:
         spec:
           hostNetwork: true
@@ -355,7 +355,6 @@ spec:
             - name: config
               mountPath: /workspace/decode-worker.sh
               subPath: decode-worker.sh
-              defaultMode: 0777
           volumes:
           - name: shared-volume
             persistentVolumeClaim:
@@ -376,3 +375,4 @@ spec:
           - name: config
             configMap:
               name: deepseek-pd-cm
+              defaultMode: 0777
