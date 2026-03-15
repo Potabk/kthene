@@ -18,7 +18,7 @@ data:
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve $MODEL_LOCATION \
+    vllm serve vllm-ascend/DeepSeek-V3.2-W8A8 \
       --host $POD_IP \
       --port "7100" \
       --data-parallel-size 2 \
@@ -73,7 +73,7 @@ data:
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve $MODEL_LOCATION \
+    vllm serve vllm-ascend/DeepSeek-V3.2-W8A8 \
       --host $POD_IP \
       --port "7100" \
       --headless \
@@ -130,7 +130,7 @@ data:
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve $MODEL_LOCATION \
+    vllm serve vllm-ascend/DeepSeek-V3.2-W8A8 \
       --host $POD_IP \
       --port "7100" \
       --data-parallel-size 8 \
@@ -186,7 +186,7 @@ data:
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve $MODEL_LOCATION \
+    vllm serve vllm-ascend/DeepSeek-V3.2-W8A8 \
       --host $POD_IP \
       --port "7100" \
       --headless \
