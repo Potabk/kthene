@@ -15,10 +15,11 @@ data:
     export HCCL_BUFFSIZE=256
     export TASK_QUEUE_ENABLE=1
     export HCCL_OP_EXPANSION_MODE="AIV"
+    export VLLM_ASCEND_ENABLE_FLASHCOMM1="1"
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve Qwen/Qwen3-30B-A3B \
+    vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V3___2-W8A8 \
       --host $POD_IP \
       --port "7100" \
       --data-parallel-size 2 \
@@ -26,10 +27,24 @@ data:
       --data-parallel-size-local 1 \
       --data-parallel-address $POD_IP \
       --data-parallel-rpc-port 12321 \
-      --tensor-parallel-size 8 \
+      --tensor-parallel-size 16 \
       --enable-expert-parallel \
       --seed 1024 \
-      --served-model-name ds_r1 \
+      --served-model-name ds-v32 \
+      --max-model-len 40000 \
+      --max-num-batched-tokens 16384 \
+      --max-num-seqs 8 \
+      --enforce-eager \
+      --trust-remote-code \
+      --gpu-memory-utilization 0.9  \
+      --quantization ascend \
+      --no-enable-prefix-caching \
+      --tokenizer-mode deepseek_v32 \
+      --tool-call-parser deepseek_v32 \
+      --enable-auto-tool-choice \
+      --reasoning-parser deepseek_v3 \
+      --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+      --additional-config '{"recompute_scheduler_enable":true,"enable_shared_expert_dp": true}' \
       --kv-transfer-config \
       '{"kv_connector": "MooncakeConnectorV1",
       "kv_role": "kv_producer",
@@ -40,11 +55,11 @@ data:
                 "use_ascend_direct": true,
                 "prefill": {
                         "dp_size": 2,
-                        "tp_size": 8
+                        "tp_size": 16
                 },
                 "decode": {
                         "dp_size": 8,
-                        "tp_size": 2
+                        "tp_size": 4
                 }
           }
       }'
@@ -65,10 +80,11 @@ data:
     export HCCL_BUFFSIZE=256
     export TASK_QUEUE_ENABLE=1
     export HCCL_OP_EXPANSION_MODE="AIV"
+    export VLLM_ASCEND_ENABLE_FLASHCOMM1="1"
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve Qwen/Qwen3-30B-A3B \
+    vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V3___2-W8A8 \
       --host $POD_IP \
       --port "7100" \
       --headless \
@@ -77,10 +93,24 @@ data:
       --data-parallel-size-local 1 \
       --data-parallel-address $MASTER_IP \
       --data-parallel-rpc-port 12321 \
-      --tensor-parallel-size 8 \
+      --tensor-parallel-size 16 \
       --enable-expert-parallel \
       --seed 1024 \
-      --served-model-name ds_r1 \
+      --served-model-name ds-v32 \
+      --max-model-len 40000 \
+      --max-num-batched-tokens 16384 \
+      --max-num-seqs 8 \
+      --enforce-eager \
+      --trust-remote-code \
+      --gpu-memory-utilization 0.9  \
+      --quantization ascend \
+      --no-enable-prefix-caching \
+      --tokenizer-mode deepseek_v32 \
+      --tool-call-parser deepseek_v32 \
+      --enable-auto-tool-choice \
+      --reasoning-parser deepseek_v3 \
+      --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+      --additional-config '{"recompute_scheduler_enable":true,"enable_shared_expert_dp": true}' \
       --kv-transfer-config \
       '{"kv_connector": "MooncakeConnectorV1",
       "kv_role": "kv_producer",
@@ -91,11 +121,11 @@ data:
                 "use_ascend_direct": true,
                 "prefill": {
                         "dp_size": 2,
-                        "tp_size": 8
+                        "tp_size": 16
                 },
                 "decode": {
                         "dp_size": 8,
-                        "tp_size": 2
+                        "tp_size": 4
                 }
           }
       }'
@@ -115,7 +145,7 @@ data:
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve Qwen/Qwen3-30B-A3B \
+    vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V3___2-W8A8 \
       --host $POD_IP \
       --port "7100" \
       --data-parallel-size 8 \
@@ -123,15 +153,20 @@ data:
       --data-parallel-size-local 4 \
       --data-parallel-address $POD_IP \
       --data-parallel-rpc-port 12321 \
-      --tensor-parallel-size 2 \
+      --tensor-parallel-size 4 \
       --enable-expert-parallel \
       --seed 1024 \
-      --served-model-name ds_r1 \
+      --served-model-name ds-v32 \
       --max-model-len 40000 \
       --max-num-batched-tokens 256 \
-      --no-enable-prefix-caching \
       --max-num-seqs 40 \
       --trust-remote-code \
+      --gpu-memory-utilization 0.94  \
+      --quantization ascend \
+      --no-enable-prefix-caching \
+      --tokenizer-mode deepseek_v32 \
+      --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+      --additional-config '{"recompute_scheduler_enable":true,"multistream_overlap_shared_expert": true,"finegrained_tp_config": {"lmhead_tensor_parallel_size":8}}' \
       --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
       --kv-transfer-config \
       '{"kv_connector": "MooncakeConnectorV1",
@@ -143,11 +178,11 @@ data:
                 "use_ascend_direct": true,
                 "prefill": {
                         "dp_size": 2,
-                        "tp_size": 8
+                        "tp_size": 16
                 },
                 "decode": {
                         "dp_size": 8,
-                        "tp_size": 2
+                        "tp_size": 4
                 }
           }
       }'
@@ -172,7 +207,7 @@ data:
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve Qwen/Qwen3-30B-A3B \
+    vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V3___2-W8A8 \
       --host $POD_IP \
       --port "7100" \
       --headless \
@@ -181,16 +216,20 @@ data:
       --data-parallel-size-local 4 \
       --data-parallel-address $MASTER_IP \
       --data-parallel-rpc-port 12321 \
-      --tensor-parallel-size 2 \
+      --tensor-parallel-size 4 \
       --enable-expert-parallel \
       --seed 1024 \
-      --served-model-name ds_r1 \
+      --served-model-name ds-v32 \
       --max-model-len 40000 \
       --max-num-batched-tokens 256 \
       --max-num-seqs 40 \
       --trust-remote-code \
       --gpu-memory-utilization 0.94  \
+      --quantization ascend \
       --no-enable-prefix-caching \
+      --tokenizer-mode deepseek_v32 \
+      --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+      --additional-config '{"recompute_scheduler_enable":true,"multistream_overlap_shared_expert": true,"finegrained_tp_config": {"lmhead_tensor_parallel_size":8}}' \
       --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
       --kv-transfer-config \
       '{"kv_connector": "MooncakeConnectorV1",
@@ -202,11 +241,11 @@ data:
                 "use_ascend_direct": true,
                 "prefill": {
                         "dp_size": 2,
-                        "tp_size": 8
+                        "tp_size": 16
                 },
                 "decode": {
                         "dp_size": 8,
-                        "tp_size": 2
+                        "tp_size": 4
                 }
           }
       }'

@@ -2,7 +2,7 @@
 
 ## 概述
 
-本项目基于 **Kthena（Volcano Serving）** 框架，在华为昇腾（Ascend）集群上以 **Prefill-Decode（PD）分离** 架构部署 DeepSeek-V3.2-W8A8 模型，通过 **Mooncake KV Transfer** 实现高效的 KV Cache 跨节点传输，显著提升吞吐量与首 Token 延迟（TTFT）。
+本项目基于 **[Kthena(Volcano Serving)](https://kthena.volcano.sh/docs/intro)** 框架，在华为昇腾（Ascend）集群上以 **Prefill-Decode（PD）分离** 架构部署 DeepSeek-V3.2-W8A8 模型，通过 **Mooncake KV Transfer** 实现高效的 KV Cache 跨节点传输，显著提升吞吐量与首 Token 延迟（TTFT）。
 
 ### 整体架构
 
@@ -11,13 +11,13 @@
     │
     ▼
 kthena-router (LoadBalancer :80 / NodePort :31714)
-    │   ModelRoute: deep-seek-V3.2 → deepseek-pd
+    │   ModelRoute: deepseek-V3.2 → deepseek-pd
     ▼
 ModelServer (deepseek-pd)
-    ├── Prefill 组（TP=8, DP=2）  ← KV Producer（Mooncake）
+    ├── Prefill 组（TP=16, DP=2）  ← KV Producer（Mooncake）
     │     ├── prefill-entry Pod × 1（端口 7100）
     │     └── prefill-worker Pod × 1
-    └── Decode 组（TP=2, DP=8）   ← KV Consumer（Mooncake）
+    └── Decode 组（TP=4, DP=8）   ← KV Consumer（Mooncake）
           ├── decode-entry Pod × 1（端口 7100）
           └── decode-worker Pod × 1
 ```
@@ -25,6 +25,8 @@ ModelServer (deepseek-pd)
 ---
 
 ## 文件说明
+
+以deepseek-v3.2为例:
 
 | 文件 | 作用 |
 |------|------|
@@ -63,16 +65,32 @@ kubectl apply -f router.yaml -n vllm-project
 
 ```bash
 # 查看 Pod 状态（等待所有 Pod Running）
-kubectl get pods -n vllm-project -w
+kubectl get pods -n vllm-project | grep '^deepseek'
+deepseek-pd-0-decode-0-0                         1/1     Running   0          122m
+deepseek-pd-0-decode-0-1                         1/1     Running   0          122m
+deepseek-pd-0-prefill-0-0                        1/1     Running   0          122m
+deepseek-pd-0-prefill-0-1                        1/1     Running   0          122m
 
 # 查看 ModelServing 状态
 kubectl get modelserving deepseek-pd -n vllm-project
+NAME          AGE
+deepseek-pd   120m
 
 # 查看 ModelRoute 状态
-kubectl get modelroute deep-seek-V3.2 -n vllm-project
+kubectl get modelroute deepseek-v32 -n vllm-project
+NAME           AGE
+deepseek-v32   107m
 
 # 查看路由 Service
 kubectl get svc -n vllm-project
+NAME                                TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+deepseek-pd-0-decode-0-0            ClusterIP      None             <none>        <none>         124m
+deepseek-pd-0-prefill-0-0           ClusterIP      None             <none>        <none>         124m
+deepseek-pd-decode-entry            ClusterIP      None             <none>        12321/TCP      124m
+deepseek-pd-prefill-entry           ClusterIP      None             <none>        12321/TCP      124m
+kthena-controller-manager-webhook   ClusterIP      10.247.187.177   <none>        443/TCP        4d3h
+kthena-router                       LoadBalancer   10.247.148.69    <pending>     80:31714/TCP   4d3h
+kthena-router-webhook               ClusterIP      10.247.109.13    <none>        443/TCP        4d3h
 ```
 
 正常状态下应有 4 个业务 Pod：
@@ -93,10 +111,10 @@ deepseek-pd-0-decode-*-0-1    Running   # decode worker
 通过 `kthena-router` ClusterIP 访问，端口 80：
 
 ```bash
-curl http://10.247.148.69/v1/chat/completions \
+curl http://kthene-router/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "ds_r1",
+    "model": "ds-v32",
     "messages": [{"role": "user", "content": "你好，请介绍一下自己"}],
     "max_tokens": 512,
     "temperature": 0.7
@@ -114,7 +132,7 @@ kubectl get nodes -o wide
 curl http://<NODE_IP>:31714/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "ds_r1",
+    "model": "ds-v32",
     "messages": [{"role": "user", "content": "你好"}],
     "max_tokens": 512
   }'
@@ -133,55 +151,11 @@ curl http://localhost:7100/health
 
 ---
 
-## 关键配置说明
+## 服务启动参数配置
 
-### PD 分离参数设计
+参考vllm-ascend [DeepSeek-V3.2](https://docs.vllm.ai/projects/ascend/en/latest/tutorials/models/DeepSeek-V3.2.html) 官方教程
 
-| 参数 | Prefill | Decode | 说明 |
-|------|---------|--------|------|
-| `--tensor-parallel-size` | 8 | 2 | Prefill 计算密集，用大 TP；Decode 内存带宽密集，用小 TP |
-| `--data-parallel-size` | 2 | 8 | Decode 并发更高，DP 更大以支持更多并发请求 |
-| `--max-num-seqs` | 8 | 40 | Prefill 每批次少序列；Decode 支持更多并发 |
-| `--max-num-batched-tokens` | 16384 | 256 | Prefill 长上下文；Decode 每步只生成少量 token |
-| `kv_role` | `kv_producer` | `kv_consumer` | Prefill 生产 KV，Decode 消费 KV |
-
-### Mooncake KV Transfer 配置
-
-```json
-{
-  "kv_connector": "MooncakeConnectorV1",
-  "kv_port": "9000",
-  "engine_id": "${GROUP_NAME}_${ROLE_ID}",
-  "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
-  "kv_connector_extra_config": {
-    "use_ascend_direct": true,
-    "prefill": { "dp_size": 2, "tp_size": 8 },
-    "decode": { "dp_size": 8, "tp_size": 2 }
-  }
-}
-```
-
-- `engine_id` 由 `GROUP_NAME`（ServingGroup 名称）和 `ROLE_ID` 共同唯一标识，确保 Prefill 与 Decode 实例能正确配对
-- `use_ascend_direct: true` 启用昇腾 RDMA 直传，避免 KV Cache 经过 CPU 内存中转，大幅降低延迟
-- KV 传输端口（9000）与推理服务端口（7100）独立，互不干扰
-
-### 推测解码（Speculative Decoding）
-
-```json
-{"num_speculative_tokens": 1, "method": "deepseek_mtp"}
-```
-
-使用 DeepSeek MTP（Multi-Token Prediction）方法，每步推测 1 个 token，对 Decode 阶段加速效果显著，建议保持开启。
-
-### Decode 专项优化
-
-```json
-{"cudagraph_mode": "FULL_DECODE_ONLY"}
-```
-
-仅对 Decode 阶段启用完整 CUDA Graph 优化，减少 kernel launch 开销，降低单 token 延迟。
-
----
+**请注意**: 本教程使用vllm-ascend镜像版本为quay.io/ascend/vllm-ascend:v0.15.0rc1-a3
 
 ## 资源规划
 
@@ -195,98 +169,103 @@ curl http://localhost:7100/health
 | decode-worker | 1 | 16 | 512Gi | 125 |
 | **合计** | **4** | **64** | **2Ti** | **500** |
 
-### 扩容建议
-
-**提升并发吞吐**：增加 `spec.replicas`（ServingGroup 级扩容），整组 Prefill+Decode 同步扩展：
-
-```yaml
-# model_server.yaml
-spec:
-  replicas: 2  # 从 1 改为 2，整体资源翻倍
-```
-
-**调整 Decode 比例**：若 Decode 成为瓶颈，单独扩 Decode role 副本数：
-
-```yaml
-roles:
-- name: decode
-  replicas: 2  # 独立扩 decode 副本
-  workerReplicas: 1
-```
 
 ---
 
-## 故障排查
+## Benchmark
 
-### Pod 长时间 Pending
+```shell
+vllm bench serve \
+  --base-url http://kthena-router \
+  --model /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V3___2-W8A8 \
+  --served-model-name ds-v32 \
+  --endpoint /v1/completions \
+  --dataset-name random \
+  --random-input 2048 \
+  --random-output 1024 \
+  --request-rate 10 \
+  --num-prompt 100
 
-```bash
-# 查看调度事件
-kubectl describe pod <pod-name> -n vllm-project | grep -A 20 Events
 
-# 检查 Ascend 资源是否充足
-kubectl describe nodes | grep -A 5 "huawei.com/ascend-1980"
+# round 1
+============ Serving Benchmark Result ============
+Successful requests:                     55
+Failed requests:                         45
+Request rate configured (RPS):           10.00
+Benchmark duration (s):                  117.78
+Total input tokens:                      112640
+Total generated tokens:                  56320
+Request throughput (req/s):              0.47
+Output token throughput (tok/s):         478.16
+Peak output token throughput (tok/s):    896.00
+Peak concurrent requests:                55.00
+Total token throughput (tok/s):          1434.49
+---------------Time to First Token----------------
+Mean TTFT (ms):                          37612.83
+Median TTFT (ms):                        38434.61
+P99 TTFT (ms):                           43065.34
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          57.28
+Median TPOT (ms):                        53.15
+P99 TPOT (ms):                           95.47
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           76.76
+Median ITL (ms):                         0.00
+P99 ITL (ms):                            1370.84
+==================================================
+
+# round 2
+============ Serving Benchmark Result ============
+Successful requests:                     58
+Failed requests:                         42
+Request rate configured (RPS):           10.00
+Benchmark duration (s):                  89.44
+Total input tokens:                      118784
+Total generated tokens:                  59392
+Request throughput (req/s):              0.65
+Output token throughput (tok/s):         664.04
+Peak output token throughput (tok/s):    888.00
+Peak concurrent requests:                58.00
+Total token throughput (tok/s):          1992.13
+---------------Time to First Token----------------
+Mean TTFT (ms):                          5116.85
+Median TTFT (ms):                        5120.14
+P99 TTFT (ms):                           8834.76
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          56.85
+Median TPOT (ms):                        51.43
+P99 TPOT (ms):                           71.89
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           73.78
+Median ITL (ms):                         0.00
+P99 ITL (ms):                            1350.82
+==================================================
+
+# round 3
+============ Serving Benchmark Result ============
+Successful requests:                     62
+Failed requests:                         38
+Request rate configured (RPS):           10.00
+Benchmark duration (s):                  87.71
+Total input tokens:                      126976
+Total generated tokens:                  63488
+Request throughput (req/s):              0.71
+Output token throughput (tok/s):         723.88
+Peak output token throughput (tok/s):    1264.00
+Peak concurrent requests:                62.00
+Total token throughput (tok/s):          2171.63
+---------------Time to First Token----------------
+Mean TTFT (ms):                          5076.98
+Median TTFT (ms):                        5438.99
+P99 TTFT (ms):                           8075.20
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          54.51
+Median TPOT (ms):                        52.55
+P99 TPOT (ms):                           70.57
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           71.73
+Median ITL (ms):                         0.00
+P99 ITL (ms):                            1227.06
+==================================================
+
 ```
-
-常见原因：Ascend 卡资源不足；PVC 未绑定；节点亲和性不满足。
-
-### Prefill/Decode 无法建立 KV 连接
-
-```bash
-# 检查 entry 服务是否解析正常
-kubectl exec -it <decode-worker-pod> -n vllm-project -- \
-  getent hosts deepseek-pd-prefill-entry.vllm-project.svc.cluster.local
-
-# 查看 Mooncake 连接日志
-kubectl logs <prefill-entry-pod> -n vllm-project | grep -i mooncake
-kubectl logs <decode-entry-pod> -n vllm-project | grep -i mooncake
-```
-
-常见原因：`MOONCAKE_ENGINE_ID` 不匹配（确认 `GROUP_NAME` 和 `ROLE_ID` 环境变量注入正确）；KV 端口 9000 被防火墙拦截。
-
-### 推理请求返回 404 / 503
-
-```bash
-# 确认 ModelRoute 路由规则生效
-kubectl describe modelroute deep-seek-r1 -n vllm-project
-
-# 确认 ModelServer 后端 Pod 就绪
-kubectl get modelserver deepseek-pd -n vllm-project
-kubectl get pods -n vllm-project -l modelserving.volcano.sh/name=deepseek-pd
-```
-
-### 开启健康探针（当前已注释）
-
-生产环境建议取消 `model_server.yaml` 中探针的注释，防止未就绪的 Pod 接收流量：
-
-```yaml
-startupProbe:
-  httpGet:
-    path: /health
-    port: 7100
-  initialDelaySeconds: 60
-  periodSeconds: 10
-  failureThreshold: 180   # 最长等待 30 分钟启动
-readinessProbe:
-  httpGet:
-    path: /health
-    port: 7100
-  periodSeconds: 10
-  failureThreshold: 3
-```
-
----
-
-## 生产环境注意事项
-
-1. **网卡名称**：`config.yaml` 中 `nic_name="enp23s0f3"` 必须与实际节点网卡名一致，否则 HCCL 通信失败。部署前执行 `ip link` 确认。
-
-2. **镜像版本**：当前使用 `vllm-ascend:nightly-a3`（nightly 构建），生产环境建议固定到具体版本标签，避免滚动更新引入不稳定版本。
-
-3. **recoveryPolicy**：`ServingGroupRecreate` 表示任意 Pod 失败时重建整个 ServingGroup，保证 PD 配对一致性。不要改为 `Never`，否则 Prefill/Decode 不匹配会导致 KV 传输失败。
-
-4. **模型缓存**：PVC `nv-action-vllm-benchmarks-v2` 挂载到 `/root/.cache`，确保模型权重已预先下载到 PVC，避免启动时从网络拉取（`VLLM_USE_MODELSCOPE=true` 会从 ModelScope 拉取）。
-
-5. **启动超时**：`VLLM_ENGINE_READY_TIMEOUT_S=1800` 设置了 30 分钟启动超时，大模型首次加载时间较长，此值不建议缩短。
-
-6. **prefix caching**：当前配置 `--no-enable-prefix-caching`，禁用了 prefix cache。如果业务有大量重复前缀（如 system prompt），可评估开启以提升命中率。

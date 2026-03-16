@@ -1,10 +1,10 @@
 apiVersion: networking.serving.volcano.sh/v1alpha1
 kind: ModelRoute
 metadata:
-  name: deep-seek-r1
+  name: deepseek-v32
   namespace: vllm-project
 spec:
-  modelName: "ds_r1"
+  modelName: "ds-v32"
   rules:
   - name: "default"
     targetModels:
@@ -17,7 +17,7 @@ metadata:
   namespace: vllm-project
 spec:
   inferenceEngine: vLLM
-  model: "ds_r1"
+  model: "ds-v32"
   workloadPort:
     port: 7100
     protocol: http

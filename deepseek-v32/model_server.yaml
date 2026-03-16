@@ -1,0 +1,422 @@
+apiVersion: workload.serving.volcano.sh/v1alpha1
+kind: ModelServing
+metadata:
+  name: deepseek-pd
+  namespace: vllm-project
+spec:
+  schedulerName: volcano
+  replicas: 1
+  recoveryPolicy: ServingGroupRecreate
+  template:
+    restartGracePeriodSeconds: 60
+    roles:
+    - name: prefill
+      replicas: 1
+      workerReplicas: 1
+      entryTemplate:
+        spec:
+          hostNetwork: true
+          dnsPolicy: ClusterFirstWithHostNet
+          containers:
+          - name: prefill
+            image: quay.nju.edu.cn/ascend/vllm-ascend:v0.15.0rc1-a3
+            imagePullPolicy: Always
+            command:
+              - /bin/bash
+            args:
+              - '-c'
+              - cd /workspace && ./prefill.sh
+            env:
+            - name: ROLE
+              value: "prefill"
+            - name: GROUP_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/group-name']
+            - name: ROLE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/role-id']
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: TP_SIZE
+              value: "16"
+            - name: DP_SIZE
+              value: "2"
+            - name: VLLM_USE_MODELSCOPE
+              value: "true"
+            # startupProbe:
+            #   httpGet:
+            #     path: /health
+            #     port: 7100
+            #     scheme: HTTP
+            #   initialDelaySeconds: 60
+            #   periodSeconds: 10
+            #   timeoutSeconds: 2
+            #   failureThreshold: 180
+            # readinessProbe:
+            #   httpGet:
+            #     path: /health
+            #     port: 7100
+            #     scheme: HTTP
+            #   periodSeconds: 10
+            #   timeoutSeconds: 2
+            #   failureThreshold: 3
+            resources:
+              limits:
+                huawei.com/ascend-1980: 16
+                memory: 512Gi
+                ephemeral-storage: 100Gi
+              requests:
+                huawei.com/ascend-1980: 16
+                ephemeral-storage: 100Gi
+                cpu: 125
+            ports:
+            - containerPort: 7100
+              name: server
+            volumeMounts:
+            - name: shared-volume
+              mountPath: /root/.cache
+            - name: dshm
+              mountPath: /dev/shm
+            - name: hccn-conf
+              mountPath: /etc/hccn.conf
+            - name: hccn-tool
+              mountPath: /usr/local/Ascend/driver/tools/hccn_tool
+            - name: ascend-install-info
+              mountPath: /etc/ascend_install.info
+            - name: config
+              mountPath: /workspace/prefill.sh
+              subPath: prefill.sh
+          volumes:
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 15Gi
+          - name: shared-volume
+            persistentVolumeClaim:
+              claimName: nv-action-vllm-benchmarks-v2
+          - name: hccn-conf
+            hostPath:
+              path: /etc/hccn.conf
+          - name: hccn-tool
+            hostPath:
+              path: /usr/local/Ascend/driver/tools/hccn_tool
+          - name: ascend-install-info
+            hostPath:
+              path: /etc/ascend_install.info
+          - name: config
+            configMap:
+              name: deepseek-pd-cm
+              defaultMode: 0777
+      workerTemplate:
+        spec:
+          hostNetwork: true
+          dnsPolicy: ClusterFirstWithHostNet
+          containers:
+          - name: prefill-worker
+            image: quay.nju.edu.cn/ascend/vllm-ascend:v0.15.0rc1-a3
+            imagePullPolicy: Always
+            command:
+              - /bin/bash
+            args:
+              - '-c'
+              - cd /workspace && ./prefill-worker.sh
+            env:
+            - name: ROLE
+              value: "prefill"
+            - name: GROUP_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/group-name']
+            - name: ROLE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/role-id']
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: MASTER_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['modelserving.volcano.sh/entry-address']
+            - name: TP_SIZE
+              value: "16"
+            - name: DP_SIZE
+              value: "2"
+            - name: VLLM_USE_MODELSCOPE
+              value: "true"
+            resources:
+              limits:
+                huawei.com/ascend-1980: 16
+                memory: 512Gi
+                ephemeral-storage: 100Gi
+              requests:
+                huawei.com/ascend-1980: 16
+                ephemeral-storage: 100Gi
+                cpu: 125
+            volumeMounts:
+            - name: shared-volume
+              mountPath: /root/.cache
+            - name: dshm
+              mountPath: /dev/shm
+            - name: hccn-conf
+              mountPath: /etc/hccn.conf
+            - name: hccn-tool
+              mountPath: /usr/local/Ascend/driver/tools/hccn_tool
+            - name: ascend-install-info
+              mountPath: /etc/ascend_install.info
+            - name: config
+              mountPath: /workspace/prefill-worker.sh
+              subPath: prefill-worker.sh
+          volumes:
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 15Gi
+          - name: shared-volume
+            persistentVolumeClaim:
+              claimName: nv-action-vllm-benchmarks-v2
+          - name: hccn-conf
+            hostPath:
+              path: /etc/hccn.conf
+          - name: hccn-tool
+            hostPath:
+              path: /usr/local/Ascend/driver/tools/hccn_tool
+          - name: ascend-install-info
+            hostPath:
+              path: /etc/ascend_install.info
+          - name: config
+            configMap:
+              name: deepseek-pd-cm
+              defaultMode: 0777
+    - name: decode
+      replicas: 1
+      workerReplicas: 1
+      entryTemplate:
+        spec:
+          hostNetwork: true
+          dnsPolicy: ClusterFirstWithHostNet
+          containers:
+          - name: decode
+            image: quay.nju.edu.cn/ascend/vllm-ascend:v0.15.0rc1-a3
+            imagePullPolicy: Always
+            command:
+              - /bin/bash
+            args:
+              - '-c'
+              - cd /workspace && ./decode.sh
+            env:
+            - name: ROLE
+              value: "decode"
+            - name: ENGINE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: GROUP_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/group-name']
+            - name: ROLE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/role-id']
+            - name: VLLM_USE_MODELSCOPE
+              value: "true"
+            - name: TP_SIZE
+              value: "4"
+            - name: DP_SIZE
+              value: "8"
+            # readinessProbe:
+            #   httpGet:
+            #     path: /health
+            #     port: 7100
+            #     scheme: HTTP
+            #   initialDelaySeconds: 60
+            #   periodSeconds: 10
+            #   timeoutSeconds: 2
+            #   failureThreshold: 3
+            ports:
+            - containerPort: 7100
+              name: server
+            resources:
+              limits:
+                huawei.com/ascend-1980: 16
+                memory: 512Gi
+                ephemeral-storage: 100Gi
+              requests:
+                huawei.com/ascend-1980: 16
+                ephemeral-storage: 100Gi
+                cpu: 125
+            volumeMounts:
+            - name: shared-volume
+              mountPath: /root/.cache
+            - name: dshm
+              mountPath: /dev/shm
+            - name: hccn-conf
+              mountPath: /etc/hccn.conf
+            - name: hccn-tool
+              mountPath: /usr/local/Ascend/driver/tools/hccn_tool
+            - name: ascend-install-info
+              mountPath: /etc/ascend_install.info
+            - name: config
+              mountPath: /workspace/decode.sh
+              subPath: decode.sh
+          volumes:
+          - name: shared-volume
+            persistentVolumeClaim:
+              claimName: nv-action-vllm-benchmarks-v2
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 15Gi
+          - name: hccn-conf
+            hostPath:
+              path: /etc/hccn.conf
+          - name: hccn-tool
+            hostPath:
+              path: /usr/local/Ascend/driver/tools/hccn_tool
+          - name: ascend-install-info
+            hostPath:
+              path: /etc/ascend_install.info
+          - name: config
+            configMap:
+              name: deepseek-pd-cm
+              defaultMode: 0777
+      workerTemplate:
+        spec:
+          hostNetwork: true
+          dnsPolicy: ClusterFirstWithHostNet
+          containers:
+          - name: decode-worker
+            image: quay.nju.edu.cn/ascend/vllm-ascend:v0.15.0rc1-a3
+            imagePullPolicy: Always
+            command:
+              - /bin/bash
+            args:
+              - '-c'
+              - cd /workspace && ./decode-worker.sh
+            env:
+            - name: ROLE
+              value: "decode"
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: GROUP_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/group-name']
+            - name: ROLE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['modelserving.volcano.sh/role-id']
+            - name: MASTER_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['modelserving.volcano.sh/entry-address']
+            - name: VLLM_USE_MODELSCOPE
+              value: "true"
+            - name: TP_SIZE
+              value: "4"
+            - name: DP_SIZE
+              value: "8"
+            resources:
+              limits:
+                huawei.com/ascend-1980: 16
+                memory: 512Gi
+                ephemeral-storage: 100Gi
+              requests:
+                huawei.com/ascend-1980: 16
+                ephemeral-storage: 100Gi
+                cpu: 125
+            volumeMounts:
+            - name: shared-volume
+              mountPath: /root/.cache
+            - name: dshm
+              mountPath: /dev/shm
+            - name: hccn-conf
+              mountPath: /etc/hccn.conf
+            - name: hccn-tool
+              mountPath: /usr/local/Ascend/driver/tools/hccn_tool
+            - name: ascend-install-info
+              mountPath: /etc/ascend_install.info
+            - name: config
+              mountPath: /workspace/decode-worker.sh
+              subPath: decode-worker.sh
+          volumes:
+          - name: shared-volume
+            persistentVolumeClaim:
+              claimName: nv-action-vllm-benchmarks-v2
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 15Gi
+          - name: hccn-conf
+            hostPath:
+              path: /etc/hccn.conf
+          - name: hccn-tool
+            hostPath:
+              path: /usr/local/Ascend/driver/tools/hccn_tool
+          - name: ascend-install-info
+            hostPath:
+              path: /etc/ascend_install.info
+          - name: config
+            configMap:
+              name: deepseek-pd-cm
+              defaultMode: 0777
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deepseek-pd-prefill-entry
+  namespace: vllm-project
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    modelserving.volcano.sh/name: deepseek-pd
+    modelserving.volcano.sh/role: prefill
+    modelserving.volcano.sh/entry: "true"
+  ports:
+  - name: dp-rpc
+    port: 12321
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deepseek-pd-decode-entry
+  namespace: vllm-project
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    modelserving.volcano.sh/name: deepseek-pd
+    modelserving.volcano.sh/role: decode
+    modelserving.volcano.sh/entry: "true"
+  ports:
+  - name: dp-rpc
+    port: 12321

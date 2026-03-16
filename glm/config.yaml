@@ -1,7 +1,7 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: deepseek-pd-cm
+  name: glm-5-pd
 data:
   prefill.sh: |
     nic_name="enp23s0f3"  # network card name
@@ -15,10 +15,12 @@ data:
     export HCCL_BUFFSIZE=256
     export TASK_QUEUE_ENABLE=1
     export HCCL_OP_EXPANSION_MODE="AIV"
+    export VLLM_ASCEND_ENABLE_FLASHCOMM1="1"
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve vllm-ascend/DeepSeek-V3.2-W8A8 \
+    pip install transformers==v5.2.0
+    vllm serve Eco-Tech/GLM-5-W8A8-xLLM \
       --host $POD_IP \
       --port "7100" \
       --data-parallel-size 2 \
@@ -26,18 +28,21 @@ data:
       --data-parallel-size-local 1 \
       --data-parallel-address $POD_IP \
       --data-parallel-rpc-port 12321 \
-      --tensor-parallel-size 8 \
+      --tensor-parallel-size 16 \
       --enable-expert-parallel \
       --seed 1024 \
-      --served-model-name ds_r1 \
-      --max-model-len 40000 \
-      --max-num-batched-tokens 16384 \
-      --max-num-seqs 8 \
+      --served-model-name glm-5 \
+      --max-num-seqs 16 \
+      --max-model-len 8192 \
+      --max-num-batched-tokens 4096 \
       --enforce-eager \
       --trust-remote-code \
       --gpu-memory-utilization 0.9  \
       --quantization ascend \
       --no-enable-prefix-caching \
+      --tool-call-parser glm47 \
+      --reasoning-parser glm45 \
+      --enable-auto-tool-choice \
       --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
       --additional-config '{"recompute_scheduler_enable":true,"enable_shared_expert_dp": true}' \
       --kv-transfer-config \
@@ -50,16 +55,16 @@ data:
                 "use_ascend_direct": true,
                 "prefill": {
                         "dp_size": 2,
-                        "tp_size": 8
+                        "tp_size": 16
                 },
                 "decode": {
                         "dp_size": 8,
-                        "tp_size": 2
+                        "tp_size": 4
                 }
           }
       }'
   prefill-worker.sh: |
-    until MASTER_IP=$(getent hosts deepseek-pd-prefill-entry.vllm-project.svc.cluster.local 2>/dev/null | awk '{print $1}') && [ -n "$MASTER_IP" ]; do
+    until MASTER_IP=$(getent hosts glm-pd-prefill-entry.vllm-project.svc.cluster.local 2>/dev/null | awk '{print $1}') && [ -n "$MASTER_IP" ]; do
       echo "Waiting for prefill entry pod..."
       sleep 5
     done
@@ -75,10 +80,12 @@ data:
     export HCCL_BUFFSIZE=256
     export TASK_QUEUE_ENABLE=1
     export HCCL_OP_EXPANSION_MODE="AIV"
+    export VLLM_ASCEND_ENABLE_FLASHCOMM1="1"
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve vllm-ascend/DeepSeek-V3.2-W8A8 \
+    pip install transformers==v5.2.0
+    vllm serve Eco-Tech/GLM-5-W8A8-xLLM \
       --host $POD_IP \
       --port "7100" \
       --headless \
@@ -87,18 +94,21 @@ data:
       --data-parallel-size-local 1 \
       --data-parallel-address $MASTER_IP \
       --data-parallel-rpc-port 12321 \
-      --tensor-parallel-size 8 \
+      --tensor-parallel-size 16 \
       --enable-expert-parallel \
       --seed 1024 \
-      --served-model-name ds_r1 \
-      --max-model-len 40000 \
-      --max-num-batched-tokens 16384 \
-      --max-num-seqs 8 \
+      --served-model-name glm-5 \
+      --max-num-seqs 16 \
+      --max-model-len 8192 \
+      --max-num-batched-tokens 4096 \
       --enforce-eager \
       --trust-remote-code \
       --gpu-memory-utilization 0.9  \
       --quantization ascend \
       --no-enable-prefix-caching \
+      --tool-call-parser glm47 \
+      --reasoning-parser glm45 \
+      --enable-auto-tool-choice \
       --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
       --additional-config '{"recompute_scheduler_enable":true,"enable_shared_expert_dp": true}' \
       --kv-transfer-config \
@@ -111,11 +121,11 @@ data:
                 "use_ascend_direct": true,
                 "prefill": {
                         "dp_size": 2,
-                        "tp_size": 8
+                        "tp_size": 16
                 },
                 "decode": {
                         "dp_size": 8,
-                        "tp_size": 2
+                        "tp_size": 4
                 }
           }
       }'
@@ -135,7 +145,8 @@ data:
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve vllm-ascend/DeepSeek-V3.2-W8A8 \
+    pip install transformers==v5.2.0
+    vllm serve Eco-Tech/GLM-5-W8A8-xLLM \
       --host $POD_IP \
       --port "7100" \
       --data-parallel-size 8 \
@@ -143,17 +154,20 @@ data:
       --data-parallel-size-local 4 \
       --data-parallel-address $POD_IP \
       --data-parallel-rpc-port 12321 \
-      --tensor-parallel-size 2 \
+      --tensor-parallel-size 4 \
       --enable-expert-parallel \
       --seed 1024 \
-      --served-model-name ds_r1 \
-      --max-model-len 40000 \
-      --max-num-batched-tokens 256 \
-      --max-num-seqs 40 \
+      --served-model-name glm-5 \
+      --max-num-seqs 16 \
+      --max-model-len 8192 \
+      --max-num-batched-tokens 4096 \
       --trust-remote-code \
       --gpu-memory-utilization 0.94  \
       --quantization ascend \
       --no-enable-prefix-caching \
+      --tool-call-parser glm47 \
+      --reasoning-parser glm45 \
+      --enable-auto-tool-choice \
       --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
       --additional-config '{"recompute_scheduler_enable":true,"multistream_overlap_shared_expert": true,"finegrained_tp_config": {"lmhead_tensor_parallel_size":8}}' \
       --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
@@ -167,16 +181,16 @@ data:
                 "use_ascend_direct": true,
                 "prefill": {
                         "dp_size": 2,
-                        "tp_size": 8
+                        "tp_size": 16
                 },
                 "decode": {
                         "dp_size": 8,
-                        "tp_size": 2
+                        "tp_size": 4
                 }
           }
       }'
   decode-worker.sh: |
-    until MASTER_IP=$(getent hosts deepseek-pd-decode-entry.vllm-project.svc.cluster.local 2>/dev/null | awk '{print $1}') && [ -n "$MASTER_IP" ]; do
+    until MASTER_IP=$(getent hosts glm-pd-decode-entry.vllm-project.svc.cluster.local 2>/dev/null | awk '{print $1}') && [ -n "$MASTER_IP" ]; do
       echo "Waiting for decode entry pod..."
       sleep 5
     done
@@ -196,7 +210,8 @@ data:
     export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
     export VLLM_ENGINE_READY_TIMEOUT_S=1800
-    vllm serve vllm-ascend/DeepSeek-V3.2-W8A8 \
+    pip install transformers==v5.2.0
+    vllm serve Eco-Tech/GLM-5-W8A8-xLLM \
       --host $POD_IP \
       --port "7100" \
       --headless \
@@ -205,17 +220,20 @@ data:
       --data-parallel-size-local 4 \
       --data-parallel-address $MASTER_IP \
       --data-parallel-rpc-port 12321 \
-      --tensor-parallel-size 2 \
+      --tensor-parallel-size 4 \
       --enable-expert-parallel \
       --seed 1024 \
-      --served-model-name ds_r1 \
-      --max-model-len 40000 \
-      --max-num-batched-tokens 256 \
-      --max-num-seqs 40 \
+      --served-model-name glm-5 \
+      --max-num-seqs 16 \
+      --max-model-len 8192 \
+      --max-num-batched-tokens 4096 \
       --trust-remote-code \
       --gpu-memory-utilization 0.94  \
       --quantization ascend \
       --no-enable-prefix-caching \
+      --tool-call-parser glm47 \
+      --reasoning-parser glm45 \
+      --enable-auto-tool-choice \
       --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
       --additional-config '{"recompute_scheduler_enable":true,"multistream_overlap_shared_expert": true,"finegrained_tp_config": {"lmhead_tensor_parallel_size":8}}' \
       --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
@@ -229,11 +247,11 @@ data:
                 "use_ascend_direct": true,
                 "prefill": {
                         "dp_size": 2,
-                        "tp_size": 8
+                        "tp_size": 16
                 },
                 "decode": {
                         "dp_size": 8,
-                        "tp_size": 2
+                        "tp_size": 4
                 }
           }
       }'

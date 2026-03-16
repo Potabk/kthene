@@ -1,7 +1,7 @@
 apiVersion: workload.serving.volcano.sh/v1alpha1
 kind: ModelServing
 metadata:
-  name: deepseek-pd
+  name: glm-pd
   namespace: vllm-project
 spec:
   schedulerName: volcano
@@ -19,7 +19,7 @@ spec:
           dnsPolicy: ClusterFirstWithHostNet
           containers:
           - name: prefill
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a3
+            image: quay.nju.edu.cn/ascend/vllm-ascend:v0.17.0rc1-a3
             imagePullPolicy: Always
             command:
               - /bin/bash
@@ -46,7 +46,7 @@ spec:
                 fieldRef:
                   fieldPath: status.hostIP
             - name: TP_SIZE
-              value: "8"
+              value: "16"
             - name: DP_SIZE
               value: "2"
             - name: VLLM_USE_MODELSCOPE
@@ -113,7 +113,7 @@ spec:
               path: /etc/ascend_install.info
           - name: config
             configMap:
-              name: deepseek-pd-cm
+              name: glm-5-pd
               defaultMode: 0777
       workerTemplate:
         spec:
@@ -121,7 +121,7 @@ spec:
           dnsPolicy: ClusterFirstWithHostNet
           containers:
           - name: prefill-worker
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a3
+            image: quay.nju.edu.cn/ascend/vllm-ascend:v0.17.0rc1-a3
             imagePullPolicy: Always
             command:
               - /bin/bash
@@ -152,7 +152,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.annotations['modelserving.volcano.sh/entry-address']
             - name: TP_SIZE
-              value: "8"
+              value: "16"
             - name: DP_SIZE
               value: "2"
             - name: VLLM_USE_MODELSCOPE
@@ -199,7 +199,7 @@ spec:
               path: /etc/ascend_install.info
           - name: config
             configMap:
-              name: deepseek-pd-cm
+              name: glm-5-pd
               defaultMode: 0777
     - name: decode
       replicas: 1
@@ -210,7 +210,7 @@ spec:
           dnsPolicy: ClusterFirstWithHostNet
           containers:
           - name: decode
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a3
+            image: quay.nju.edu.cn/ascend/vllm-ascend:v0.17.0rc1-a3
             imagePullPolicy: Always
             command:
               - /bin/bash
@@ -243,7 +243,7 @@ spec:
             - name: VLLM_USE_MODELSCOPE
               value: "true"
             - name: TP_SIZE
-              value: "2"
+              value: "4"
             - name: DP_SIZE
               value: "8"
             # readinessProbe:
@@ -300,7 +300,7 @@ spec:
               path: /etc/ascend_install.info
           - name: config
             configMap:
-              name: deepseek-pd-cm
+              name: glm-5-pd
               defaultMode: 0777
       workerTemplate:
         spec:
@@ -308,7 +308,7 @@ spec:
           dnsPolicy: ClusterFirstWithHostNet
           containers:
           - name: decode-worker
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-a3
+            image: quay.nju.edu.cn/ascend/vllm-ascend:v0.17.0rc1-a3
             imagePullPolicy: Always
             command:
               - /bin/bash
@@ -341,7 +341,7 @@ spec:
             - name: VLLM_USE_MODELSCOPE
               value: "true"
             - name: TP_SIZE
-              value: "2"
+              value: "4"
             - name: DP_SIZE
               value: "8"
             resources:
@@ -386,19 +386,19 @@ spec:
               path: /etc/ascend_install.info
           - name: config
             configMap:
-              name: deepseek-pd-cm
+              name: glm-5-pd
               defaultMode: 0777
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: deepseek-pd-prefill-entry
+  name: glm-pd-prefill-entry
   namespace: vllm-project
 spec:
   clusterIP: None
   publishNotReadyAddresses: true
   selector:
-    modelserving.volcano.sh/name: deepseek-pd
+    modelserving.volcano.sh/name: glm-pd
     modelserving.volcano.sh/role: prefill
     modelserving.volcano.sh/entry: "true"
   ports:
@@ -408,13 +408,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: deepseek-pd-decode-entry
+  name: glm-pd-decode-entry
   namespace: vllm-project
 spec:
   clusterIP: None
   publishNotReadyAddresses: true
   selector:
-    modelserving.volcano.sh/name: deepseek-pd
+    modelserving.volcano.sh/name: glm-pd
     modelserving.volcano.sh/role: decode
     modelserving.volcano.sh/entry: "true"
   ports:
