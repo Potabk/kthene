@@ -29,7 +29,7 @@ vllm bench serve \
   --dataset-name random \
   --random-input 2048 \
   --random-output 1024 \
-  --request-rate 10 \
+  --request-rate 50 \
   --num-prompt 100
 
 ============ Serving Benchmark Result ============
