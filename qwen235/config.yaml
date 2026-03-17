@@ -1,0 +1,105 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: qwen235-cm
+  namespace: vllm-project
+data:
+  prefill.sh: |
+    nic_name="enp23s0f3"  # network card name
+    local_ip=$POD_IP
+    export HCCL_IF_IP=$local_ip
+    export GLOO_SOCKET_IFNAME=$nic_name
+    export TP_SOCKET_IFNAME=$nic_name
+    export HCCL_SOCKET_IFNAME=$nic_name
+    export OMP_PROC_BIND=false
+    export OMP_NUM_THREADS=10
+    export HCCL_BUFFSIZE=512
+    export HCCL_OP_EXPANSION_MODE="AIV"
+    export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    export VLLM_ENGINE_READY_TIMEOUT_S=1800
+    vllm serve Qwen/Qwen3-235B-A22B \
+      --host $POD_IP \
+      --port "7100" \
+      --data-parallel-size 2 \
+      --data-parallel-size-local 2 \
+      --data-parallel-address $POD_IP \
+      --data-parallel-rpc-port 12321 \
+      --tensor-parallel-size 8 \
+      --enable-expert-parallel \
+      --seed 1024 \
+      --served-model-name qwen3 \
+      --max-model-len 8192 \
+      --max-num-batched-tokens 8192 \
+      --max-num-seqs 32 \
+      --enforce-eager \
+      --trust-remote-code \
+      --gpu-memory-utilization 0.9  \
+      --no-enable-prefix-caching \
+      --kv-transfer-config \
+      '{"kv_connector": "MooncakeConnectorV1",
+      "kv_role": "kv_producer",
+      "kv_port": "9000",
+      "engine_id": "$MOONCAKE_ENGINE_ID",
+      "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
+      "kv_connector_extra_config": {
+                "use_ascend_direct": true,
+                "prefill": {
+                        "dp_size": 2,
+                        "tp_size": 8
+                },
+                "decode": {
+                        "dp_size": 4,
+                        "tp_size": 4
+                }
+          }
+      }'
+  decode.sh: |
+    nic_name="enp23s0f3"  # network card name
+    local_ip=$POD_IP
+    export HCCL_IF_IP=$local_ip
+    export GLOO_SOCKET_IFNAME=$nic_name
+    export TP_SOCKET_IFNAME=$nic_name
+    export HCCL_SOCKET_IFNAME=$nic_name
+    export OMP_PROC_BIND=false
+    export OMP_NUM_THREADS=10
+    export VLLM_ASCEND_ENABLE_MLAPO=1
+    export HCCL_BUFFSIZE=512
+    export TASK_QUEUE_ENABLE=1
+    export HCCL_OP_EXPANSION_MODE="AIV"
+    export MOONCAKE_ENGINE_ID="${GROUP_NAME}_${ROLE_ID}"
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    export VLLM_ENGINE_READY_TIMEOUT_S=1800
+    vllm serve Qwen/Qwen3-235B-A22B \
+      --host $POD_IP \
+      --port "7100" \
+      --data-parallel-size 4 \
+      --data-parallel-size-local 4 \
+      --data-parallel-address $POD_IP \
+      --data-parallel-rpc-port 12321 \
+      --tensor-parallel-size 4 \
+      --enable-expert-parallel \
+      --seed 1024 \
+      --served-model-name qwen3 \
+      --trust-remote-code \
+      --gpu-memory-utilization 0.94  \
+      --no-enable-prefix-caching \
+      --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
+      --kv-transfer-config \
+      '{"kv_connector": "MooncakeConnectorV1",
+      "kv_role": "kv_consumer",
+      "kv_port": "9000",
+      "engine_id": "$MOONCAKE_ENGINE_ID",
+      "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
+      "kv_connector_extra_config": {
+                "use_ascend_direct": true,
+                "prefill": {
+                        "dp_size": 2,
+                        "tp_size": 8
+                },
+                "decode": {
+                        "dp_size": 4,
+                        "tp_size": 4
+                }
+          }
+      }'

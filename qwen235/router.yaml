@@ -1,0 +1,39 @@
+apiVersion: networking.serving.volcano.sh/v1alpha1
+kind: ModelRoute
+metadata:
+  name: qwen235
+  namespace: vllm-project
+spec:
+  modelName: "qwen3"
+  rules:
+  - name: "default"
+    targetModels:
+    - modelServerName: "qwen235-pd"
+---
+apiVersion: networking.serving.volcano.sh/v1alpha1
+kind: ModelServer
+metadata:
+  name: qwen235-pd
+  namespace: vllm-project
+spec:
+  inferenceEngine: vLLM
+  model: "qwen3"
+  workloadPort:
+    port: 7100
+    protocol: http
+  workloadSelector:
+    matchLabels:
+      modelserving.volcano.sh/name: qwen235-pd
+    pdGroup:
+      groupKey: "modelserving.volcano.sh/group-name"
+      prefillLabels:
+        modelserving.volcano.sh/role: prefill
+      decodeLabels:
+        modelserving.volcano.sh/role: decode
+  trafficPolicy:
+    timeout: "300s"
+    retry:
+      attempts: 3
+      retryInterval: "150ms"
+  kvConnector:
+    type: mooncake
